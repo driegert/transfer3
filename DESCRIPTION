@@ -1,0 +1,13 @@
+Package: transfer3
+Type: Package
+Title: Estimate transfer functions using non-stationary multitaper framework
+Version: 0.1.0
+Author: David L. Riegert
+Maintainer: David L. Riegert <driegert@gmail.com>
+Description: Estimate transfer functions using a multivariate model using offset frequencies where applicable.
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.0.1
+Imports:
+  multitaper
