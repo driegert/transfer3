@@ -9,3 +9,13 @@ standardizeDf <- function(x){
 
   data.frame(lapply(x, function(y){ (y - mean(y)) / sd(y) }))
 }
+
+#' @export
+blockStartIdx <- function(n, blockSize, overlap){
+  increment <- ceiling(blockSize * (1-overlap))
+
+  sectIdx <- seq(1, n-blockSize+1, by=increment)
+  numSect <- length(sectIdx)
+
+  list(startIdx = sectIdx, increment = increment, nBlock = numSect)
+}

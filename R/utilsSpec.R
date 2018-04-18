@@ -12,14 +12,19 @@ eigenCoef <- function(x, nw = 4, k = 7, nFFT = "default", centre = "none"
     tmp <- spec.mtm(x, nw = nw, k = k, nFFT = nFFT, centre = centre
                     , dpssIN = dpssIN, deltat = deltat, dtUnits = dtUnits
                     , adaptiveWeighting = adaptiveWeighting
-                    , plot = FALSE, returnInternasls = TRUE)$mtm[ c("eigenCoefs", "eigenCoefWt") ]
-    yk <- tmp$eigenCoefs * tmp$eigenCoefWt
+                    , plot = FALSE, returnInternals = TRUE)$mtm[ c("eigenCoefs", "eigenCoefWt") ]
+    yk <- tmp$eigenCoefs * sqrt(tmp$eigenCoefWt)
   } else {
     yk <- spec.mtm(x, nw = nw, k = k, nFFT = nFFT, centre = centre
                           , dpssIN = dpssIN, deltat = deltat, dtUnits = dtUnits
-                          , adaptiveWeighting = adaptiveWeighting
-                          , plot = FALSE, returnInternasls = TRUE)$mtm$eigenCoefs
+                          , adaptiveWeighting = adaptiveWeighting, Ftest = TRUE
+                          , plot = FALSE, returnInternals = TRUE)$mtm$eigenCoefs
   }
 
   yk
+}
+
+#' @export
+posFreq <- function(nFFT, dt){
+  seq(0, 1/(2*dt), by = 1/(dt*nFFT))
 }
