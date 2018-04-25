@@ -11,3 +11,7 @@ eigenCoef(x, nw = 4, k = 7, nFFT = "default", centre = "none",
 \description{
 Calculates weighted eigencoefficients for a single vector / block
 }
+\details{
+I think there may be some overhead that could be removed in the spec.mtm code.
+But also, perhaps not...
+}

@@ -9,9 +9,9 @@ subroutine cohMsc(coh, yk1, yk2, nfreq1, nfreq2, k, nOffsets)
   s2 = sum(abs(yk2)**2, 2)
 
   do i = 1, nOffsets
-    cs = sum( yk1 * conjg(yk2(i:(i+nfreq1-1), :)), 2 )
-    coh(i, :) = realpart(cs)**2 + imagpart(cs)**2
-    coh(i, :) = coh(i, :) / ( s1 * s2(i:(i+nfreq1-1)) )
+    cs(:) = sum( yk1(:, :) * conjg(yk2(i:(i+nfreq1-1), :)), 2 )
+    coh(i, :) = realpart(cs(:))**2 + imagpart(cs(:))**2
+    coh(i, :) = coh(i, :) / ( s1(:) * s2(i:(i+nfreq1-1)) )
   end do
 
 end subroutine cohMsc
