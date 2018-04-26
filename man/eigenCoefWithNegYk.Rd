@@ -4,7 +4,7 @@
 \alias{eigenCoefWithNegYk}
 \title{Extends positive frequency eigencoefficients to include negative frequencies}
 \usage{
-eigenCoefWithNegYk(yk2, freqRangeIdx, maxFreqOffsetIdx)
+eigenCoefWithNegYk(yk2, freqRangeIdx, maxFreqOffsetIdx, multPred = FALSE)
 }
 \description{
 Adds conjugate eigencoefficient values to the "top" (front?) of the eigencoefficient matrix

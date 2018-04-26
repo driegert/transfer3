@@ -86,7 +86,8 @@ subroutine tf(H, yk1, yk2, cohInd, nrow1, nrow2, npred, nBlocks &
   end do
 end subroutine tf
 
-
+! sets up and stores entries of yk1 and yk2 into the design matrix and
+! response vector.
 subroutine designMatrix(Y, design, yk1, yk2, f, nrow1, nrow2 &
   , npred, k, nBlocks, nDesCol, nHcoef, cohInd, oFreqIdx, nOffsets)
   implicit none
@@ -109,6 +110,8 @@ subroutine designMatrix(Y, design, yk1, yk2, f, nrow1, nrow2 &
   end do
 end subroutine designMatrix
 
+! sets the indicators of the rows of the coherence matrices to be
+! their column index in the transfer function matrix
 subroutine determineHcol(cohInd, offsetIndAll, HnColByPred, npred &
     , oFreqIdx, nOffsets)
   implicit none
@@ -136,6 +139,8 @@ subroutine determineHcol(cohInd, offsetIndAll, HnColByPred, npred &
   end do
 end subroutine determineHcol
 
+! picks out the H column indices based on a particular column (central freq)
+! of the coherence indicator matrix
 subroutine findHcol(cohIndCol, offsetIndAll, Hind &
   , nOffsets, npred, nHcoef)
   implicit none
@@ -146,6 +151,7 @@ subroutine findHcol(cohIndCol, offsetIndAll, Hind &
   Hind = pack(offsetIndAll, cohIndCol > 0)
 end subroutine findHcol
 
+! performs and svd regression
 subroutine zSvdRegression(Y, X, m, n, beta, stdErr, svd_ev)
 ! uses the SVD of the matrix X to calculate the regression coefficients for
 ! the model: Y = XB (where B is a vector of beta coefficients)

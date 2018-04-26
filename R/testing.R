@@ -131,3 +131,28 @@ test.tf <- function(){
   lines(Im(out$H), col = 'blue')
   lines(Im(H), col = 'blue', lty = 2)
 }
+
+
+test.r.tf <- function(){
+  x <- data.frame(x1 = arima.sim(n = 200, model = list(ar = c(0.9, -0.2)))
+                  , x2 = arima.sim(n = 200, model = list(ar = c(0.7, -0.2))))
+  y <- data.frame(y = arima.sim(n = 100, model = list(ar = c(0.9, -0.2))))
+
+  nw = 4; k = 7; nFFTy = NULL; centre = "none"
+  dty = 2; dtx = 1; blockSizey = NULL; overlap = 0
+  cohSigLev = 0.9; nOffAllowed = 2
+  forceZeroOffset = TRUE
+  freqRange = NULL; maxFreqOffset = .02
+  decorrelate = NULL
+
+
+  X <- eigenCoef(x)
+
+  freq <- seq(0, 0.5, length.out = 129)
+  H <- (freq+1)^4
+
+  Y <- X
+  for (i in 1:ncol(X)){
+    Y[, i] <- H * X[, i] + complex(real = rnorm(dim(X)[1]), imaginary = rnorm(dim(X)[1]))
+  }
+}

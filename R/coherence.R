@@ -146,6 +146,22 @@ aveOfMsc <- function(yk1, yk2, freqRangeIdx, maxFreqOffsetIdx){
   matrix(out$coh, nrow = nOffsets, ncol = nfreq1)
 }
 
+#' used in the transfer function functions
+#' @export
+mscFromEigenHelper <- function(yk1, yk2, k, nOffsets){
+  out <- .Fortran("cohMsc"
+                  , coh = double(nOffsets * nrow(yk1))
+                  , yk1 = as.complex(yk1)
+                  , yk2 = as.complex(yk2)
+                  , nfreq1 = as.integer(nrow(yk1))
+                  , nfreq2 = as.integer(nrow(yk2))
+                  , k = as.integer(k)
+                  , nOffsets = as.integer(nOffsets))
+
+  # convert to standard normal:
+  matrix(msc2norm(out$coh, k = k, avoidInf = TRUE), nrow = nOffsets, ncol = nrow(yk1))
+}
+
 mscOfAve <- function(){
   -1
 }

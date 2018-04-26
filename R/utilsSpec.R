@@ -45,3 +45,28 @@ eigenCoefWithNegYk <- function(yk2, freqRangeIdx, maxFreqOffsetIdx, multPred = F
           , yk2[1:(freqRangeIdx[2] + maxFreqOffsetIdx), ])
   }
 }
+
+#' this only works for a very specific situation
+#' @export
+fixDeadBand <- function(msc, zeroOffsetIdx, freqRangeIdx, band, df, replaceWith = 0){
+  # if ((band[1] > 0 | band[2] < 0) | (freqRangeIdx[1] != 1)){
+  #   stop("fixDeadBand doesn't work unless you start at 0 and you're taking a band around 0.")
+  # }
+
+  ## assuming symmetry around f = 0:
+  nIdx <- ceiling(band / df)
+
+  top <- zeroOffsetIdx + nIdx
+  bottom <- zeroOffsetIdx - nIdx
+
+  # everything is backwards - we need the reverse diagonals.  Also, in fields::image.plot(), the
+  # y-axis is "reversed" relative to matrix indices as it were...
+  # so thinking about this based on those plots is difficult..
+  matTop <- lower.tri(matrix(0, top, top), diag = TRUE)
+  matBot <- upper.tri(matrix(0, nrow = bottom, ncol = top), diag = FALSE)
+  matTop[(top-bottom+1):top, 1:top] <- matBot & matTop[(top-bottom+1):top, 1:top]
+
+  msc[top:1, 1:top][matTop] <- replaceWith
+
+  msc
+}
