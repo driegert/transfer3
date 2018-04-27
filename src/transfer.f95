@@ -51,6 +51,7 @@ subroutine tf(H, yk1, yk2, cohInd, nrow1, nrow2, npred, nBlocks &
       end subroutine findHcol
   end interface
 
+  H(:, :) = dcmplx(0.0d0, 0.0d0)
   nDesCol(1) = 1
   ! used to get rows of yk2 to use - row indices in cohInd basically...
   oFreqIdx = (/ (f, f = 1, nOffsets) /)
@@ -65,6 +66,8 @@ subroutine tf(H, yk1, yk2, cohInd, nrow1, nrow2, npred, nBlocks &
     end do
 
     nHcoef = nDesCol(npred+1)-1 ! number of columns in design mat at this f
+
+    if (nHcoef .eq. 0) cycle
 
     allocate(design(nBlocks*k, nHcoef), Hwrk(nHcoef), Hind(nHcoef))
     allocate(stdErr(nHcoef), svd_ev(nHcoef))

@@ -144,15 +144,20 @@ test.r.tf <- function(){
   forceZeroOffset = TRUE
   freqRange = NULL; maxFreqOffset = .02
   decorrelate = NULL
+  deadBand = c(0, 0.004)
 
 
-  X <- eigenCoef(x)
-
-  freq <- seq(0, 0.5, length.out = 129)
-  H <- (freq+1)^4
-
-  Y <- X
-  for (i in 1:ncol(X)){
-    Y[, i] <- H * X[, i] + complex(real = rnorm(dim(X)[1]), imaginary = rnorm(dim(X)[1]))
-  }
+  tfEst <- tf(y = y, x = x, nw = nw, k = k, dty = dty, dtx = dtx, cohSigLev = 0.9
+              , nOffAllowed = nOffAllowed
+              , forceZeroOffset = TRUE, maxFreqOffset = 0.02, decorrelate = NULL
+              , deadBand = c(0, 0.004))
+  # X <- eigenCoef(x)
+  #
+  # freq <- seq(0, 0.5, length.out = 129)
+  # H <- (freq+1)^4
+  #
+  # Y <- X
+  # for (i in 1:ncol(X)){
+  #   Y[, i] <- H * X[, i] + complex(real = rnorm(dim(X)[1]), imaginary = rnorm(dim(X)[1]))
+  # }
 }
