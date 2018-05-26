@@ -7,5 +7,9 @@
 eigenCoefWithNegYk(yk2, freqRangeIdx, maxFreqOffsetIdx, multPred = FALSE)
 }
 \description{
-Adds conjugate eigencoefficient values to the "top" (front?) of the eigencoefficient matrix
+Adds conjugate eigencoefficient values to the "top" (front?) of the eigencoefficient matrix.
+}
+\details{
+The multPred argument is assuming that you are passing in a 4D array:
+freqs x tapers x blocks x predictors
 }

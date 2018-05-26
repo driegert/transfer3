@@ -1,6 +1,21 @@
 # coherence based methods:
 
-#' @details Only calculates the forward coherence currently.
+#' Calculates the coherence between two series.
+#'
+#' Multitaper coherence estimate.
+#'
+#' @param x slower sampled series - the response (stupid)
+#' @param y faster sampled series - the predictor
+#' @param method only "aveOfMsc" is currently implemented
+#' @param nw blap
+#' @param k blap
+#' @param centre The time series is centred using one of three methods:
+#' expansion onto discrete prolate spheroidal sequences ('Slepian'),
+#' arithmetic mean ('arithMean'), trimmed mean ('trimMean'), or not at all ('none').
+#'
+#'
+#' @details Only calculates the forward coherence currently.  'x' is the response if
+#' the series do not have the same sampling rate ... which is confusing.
 #' @export
 coherence <- function(x, y, method = c("aveOfMsc", "mscOfAve", "mscOfAveCoh")
                       , nw = 4, k = 7, nFFTx = NULL, centre = "none"
@@ -91,9 +106,9 @@ aveOfMscBlock <- function(x, y, blockx, blocky
   msc <- matrix(0, nrow = nOffsets, ncol = nFreqRangeIdx)
 
   for (i in 1:blockx$nBlock){
-    ykx <- eigenCoef(x[ blockx$startIdx[i]:(i*blockx$blockSize) ], nw = nw, k = k, nFFT = nFFTx
+    ykx <- eigenCoef(x[ blockx$startIdx[i]:(blockx$startIdx[i] + blockx$blockSize-1) ], nw = nw, k = k, nFFT = nFFTx
                      , centre = centre, deltat = dtx)
-    yky <- eigenCoef(y[ blocky$startIdx[i]:(i*blocky$blockSize) ], nw = nw, k = k, nFFT = nFFTy
+    yky <- eigenCoef(y[ blocky$startIdx[i]:(blocky$startIdx[i] + blocky$blockSize-1) ], nw = nw, k = k, nFFT = nFFTy
                      , centre = centre, deltat = dty)
 
     if (convertMscToNormal){
@@ -108,7 +123,7 @@ aveOfMscBlock <- function(x, y, blockx, blocky
     }
   }
 
-  msc
+  msc / blockx$nBlock
 }
 
 # the assumption here is that the df's are the same in yk1 and yk2, which means nFFT1 = a*nFFT2 (a = dt1/dt2 an integer)
@@ -133,12 +148,13 @@ aveOfMsc <- function(yk1, yk2, freqRangeIdx, maxFreqOffsetIdx){
                     , k = as.integer(ncol(yk1))
                     , nOffsets = as.integer(nOffsets))
   } else {
+    numRows <- length((freqRangeIdx[1]-maxFreqOffsetIdx):(freqRangeIdx[2]+maxFreqOffsetIdx))
     out <- .Fortran("cohMsc"
                     , coh = double(nfreq1 * nOffsets)
                     , yk1 = as.complex(yk1[ freqRangeIdx[1]:freqRangeIdx[2], ])
                     , yk2 = as.complex(yk2[ (freqRangeIdx[1]-maxFreqOffsetIdx):(freqRangeIdx[2]+maxFreqOffsetIdx), ])
                     , nfreq1 = as.integer(nfreq1)
-                    , nfreq2 = as.integer(nrow(yk2.f))
+                    , nfreq2 = as.integer(numRows)
                     , k = as.integer(ncol(yk1))
                     , nOffsets = as.integer(nOffsets))
   }

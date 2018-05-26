@@ -128,7 +128,7 @@ subroutine determineHcol(cohInd, offsetIndAll, HnColByPred, npred &
   HnColByPred(1) = 1
   cur = 0
 
-  print *, "npred = ", npred
+  ! print *, "npred = ", npred
   do p = 1, npred
     offsetIndAll(pack(oFreqIdx(:), sum(cohInd(:, :, p), 2) > 0), p) = 1
     HnColByPred(p+1) = HnColByPred(p) + sum(offsetIndAll(:, p))
@@ -153,6 +153,29 @@ subroutine findHcol(cohIndCol, offsetIndAll, Hind &
 
   Hind = pack(offsetIndAll, cohIndCol > 0)
 end subroutine findHcol
+
+! assumes the positive lags (causal filter coefficients) are in
+! the upper half of the vector.
+subroutine twoSidedFilter(filter, series, seriesOut, hTrim, n)
+  implicit none
+
+  integer :: hTrim, n, L, i
+  real*8 :: filter(2*hTrim + 1), series(n), seriesOut(n)
+
+  L = 2*hTrim + 1
+
+  do i = 1, hTrim
+    seriesOut(i) = -999.99d0
+  end do
+
+  do i = n-hTrim+1, n
+    seriesOut(i) = -999.99d0
+  end do
+
+  do i = 1, n - 2*hTrim
+    seriesOut(i+hTrim) = sum(filter(L:1:-1) * series(i:(L+i-1)))
+  end do
+end subroutine twoSidedFilter
 
 ! performs and svd regression
 subroutine zSvdRegression(Y, X, m, n, beta, stdErr, svd_ev)
