@@ -164,7 +164,7 @@ filter.twoSided <- function(x, filter){
                   , filter = as.double(filter)
                   , series = as.double(x)
                   , seriesOut = double(length(x))
-                  , hTrim = as.integer(floor(length(x) / 2))
+                  , hTrim = as.integer(floor(length(filter) / 2))
                   , n = as.integer(length(x)))$seriesOut
 
   out[which(out == -999.99)] <- NA

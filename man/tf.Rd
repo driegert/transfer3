@@ -7,7 +7,8 @@
 tf(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none", dty = 1,
   dtx = 1, blockSizey = NULL, overlap = 0, cohSigLev = 0.99,
   nOffAllowed = 1, forceZeroOffset = TRUE, freqRange = NULL,
-  maxFreqOffset = 0, deadBand = NULL, decorrelate = NULL)
+  maxFreqOffset = 0, deadBand = NULL, decorrelate = NULL,
+  nDecorOffAllowed = NULL)
 }
 \arguments{
 \item{y}{A single column \code{data.frame} containing the response time-series.}
@@ -19,6 +20,10 @@ the zero-offset}, to be used in the transfer function estimation.}
 
 \item{decorrelate}{A vector containing the names of the predictors (columns of x)
 in the order of the iterative regression.}
+
+\item{deadband}{A vector of two values indicating the start and end of the deadband to remove from the coherence
+matrix - this doesn't work if freqRange[1] != 0 - also, you're going to get errors if you run this when
+maxFreqOffset == 0.}
 }
 \description{
 Calculates some transfer functions.

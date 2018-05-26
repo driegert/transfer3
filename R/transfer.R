@@ -8,13 +8,16 @@
 #' in the order of the iterative regression.
 #' @param nOffAllowed An \code{integer} representing the number of offsets, \emph{including
 #' the zero-offset}, to be used in the transfer function estimation.
+#' @param deadband A vector of two values indicating the start and end of the deadband to remove from the coherence
+#' matrix - this doesn't work if freqRange[1] != 0 - also, you're going to get errors if you run this when
+#' maxFreqOffset == 0.
 #' @export
 tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
                , dty = 1, dtx = 1, blockSizey = NULL, overlap = 0
                , cohSigLev = 0.99, nOffAllowed = 1
                , forceZeroOffset = TRUE
                , freqRange = NULL, maxFreqOffset = 0, deadBand = NULL
-               , decorrelate = NULL){
+               , decorrelate = NULL, nDecorOffAllowed = NULL){
   ## check ALL the parameters here...
   # 1) make sure decorrelate contains column names of x
   # 2) dty > dtx
@@ -91,6 +94,10 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
 
   nOffsets <- 2*maxFreqOffsetIdx + 1
   nDecorFreqRangeIdx <- decorFreqRangeIdx[2] - decorFreqRangeIdx[1] + 1 ### TODO: deal with this...
+
+  if (!is.null(decorrelate) && is.null(nDecorOffAllowed)){
+    nDecorOffAllowed <- nOffAllowed
+  }
 
   if (freqRangeIdx[1] != 1 & !is.null(decorrelate)){
     stop("I don't think this works - check the TODO comments in tf() and remove this stop() line if it seems okay")
@@ -182,7 +189,11 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
       if (forceZeroOffset){
         ### START HERE - MAY 13, 2018
         centreBandW <- (maxFreqOffsetIdx+1-floor(nwIdx / 2)):(maxFreqOffsetIdx+1+floor(nwIdx/2))
-        coh[centreBandW, , ] <- -999
+        if (any(centreBandW < 1)){
+          coh[, , ] <- -999
+        } else {
+          coh[centreBandW, , ] <- -999
+        }
         coh[maxFreqOffsetIdx+1, , ] <- 999
       }
 
@@ -216,7 +227,7 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
                                             , ncol = as.integer(dim(coh)[2])
                                             , ind = integer(dim(coh)[1]*dim(coh)[2])
                                             , level = as.double(mscLev)
-                                            , nOff = as.integer(nOffAllowed))$ind
+                                            , nOff = as.integer(nDecorOffAllowed))$ind
                                    , nrow = dim(coh)[1], ncol = dim(coh)[2])
         }
       }
@@ -294,7 +305,11 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
   #1)
   if (forceZeroOffset){
     centreBandW <- (maxFreqOffsetIdx+1-floor(nwIdx / 2)):(maxFreqOffsetIdx+1+floor(nwIdx/2))
-    coh[centreBandW, , ] <- -999
+    if (any(centreBandW < 1)){
+      coh[, , ] <- -999
+    } else {
+      coh[centreBandW, , ] <- -999
+    }
     coh[maxFreqOffsetIdx+1, , ] <- 999
   }
 
@@ -367,7 +382,7 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
                , freqRange = freqRange, freqRangeIdx = freqRangeIdx
                , nFreqRangeIdx = nFreqRangeIdx
                , maxFreqOffset = maxFreqOffset, maxFreqOffsetIdx = maxFreqOffsetIdx
-               , convertMscToNormal = TRUE)
+               , df = df, convertMscToNormal = TRUE)
 
   if (is.null(decorrelate)){
     list(H = H, Hinfo = Hinfo, info = info, ykx = NULL)
@@ -454,8 +469,8 @@ specPredict <- function(H, d2){
 predictTs <- function(newdata, ir, Hinfo, info){
   N <- nrow(newdata)
   yhat <- rep(0, N)
-  nFlt <- nrow(ir)
-  nTrim <- (nFlt - 1) / 2
+  # nFlt <- nrow(ir)
+  nTrim <- ir$n
 
   # # standardize the input if necessary.
   # if (info$standardize){
@@ -469,11 +484,11 @@ predictTs <- function(newdata, ir, Hinfo, info){
     if (Hinfo$idxOffset[i] == 0){
       tmp <- filter.twoSided(newdata[, Hinfo$predictor[i]], ir$h[, Hinfo$Hcolumn[i]])
     } else {
-      tmp <- filter.twoSided(2*cos(-2*pi*(0:(N-1))*(Hinfo$idxOffset[i]/info$nFFT2)) * newdata[, Hinfo$predictor[i]]
-                     , ir[, Hinfo$Hcolumn[i]])  ####### CHECK THIS - cos() - I'm unsure.
+      tmp <- filter.twoSided(2*cos(-2*pi*(0:(N-1))*(Hinfo$idxOffset[i]/info$nFFTy)) * newdata[, Hinfo$predictor[i]]
+                     , ir$h[, Hinfo$Hcolumn[i]])  ####### CHECK THIS - cos() - I'm unsure.
     }
 
-    yhat <- yhat + tmp[nTrim + 1:N] # this adds NA's at the end, also has NA's at the beginning - I need to look at
+    yhat <- yhat + tmp # this adds NA's at the end, also has NA's at the beginning - I need to look at
     # zFilter again for how this works by convoling using FFT's ...
   }
 
