@@ -198,3 +198,22 @@ invertEigenCoef <- function(yk, v, dt, nFFT, N){
   # scaleFactor <- s2$mtm$dpss$v * sqrt(s2$mtm$deltaT)
   # fixedX2 <- rowSums(inv * scaleFactor) / rowSums(scaleFactor * scaleFactor)
 }
+
+
+#' I don't know if I quite trust this.. worth another look
+#' @export
+H2zero <- function(H, freqBand){
+  freqBandIdx <- c(max(1, floor(freqBand[1] / H$info$df)), ceiling(freqBand[2] / H$info$df))
+
+  if (any((H$info$freqRangeIdx - freqBandIdx) < 0)){
+    stop("freqBand must be a subset of H$info$freqRange")
+  }
+
+  freq <- H$info$freqRangeIdx[1]:H$info$freqRangeIdx[2]
+
+  idx <- which(freq == freqBandIdx[1]):which(freq == freqBandIdx[2])
+
+  H$H[idx, ] <- complex(real = 0, imaginary = 0)
+
+  H
+}

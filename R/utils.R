@@ -68,3 +68,16 @@ erfinv <- function(x){
   #
   # 1 - (a[1]*t + a[2]*t^2 + a[3]*t^3 + a[4]*t^4 + a[5]*t^5)*exp(-x^2)
 }
+
+#' Standardize a data.frame
+#'
+#' Subtract mean and divide by sd for each column of the provided data.frame.
+#'
+#' @param x The \code{data.frame} whose columns will be standardized.
+#'
+#' @export
+df.std <- function(x){
+  stopifnot(class(x) == "data.frame")
+
+  as.data.frame(lapply(x, function(z){ (z - mean(z)) / sd(z) }))
+}

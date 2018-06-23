@@ -261,10 +261,14 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
 
       xLfitted <- eigenCoefFit(H, Hinfo, ykx[, , , nameOrder[1:(l-1)], drop = FALSE]
                                , names(x)[nameOrder[1:(l-1)]], decorCentFreqIdx)
-      xLfitted <- eigenCoefWithNegYk(yk2 = xLfitted
-                                     # , freqRangeIdx = c(1, dim(xLfitted)[1])
-                                     , freqRangeIdx = freqRangeIdx
-                                     , maxFreqOffsetIdx = maxFreqOffsetIdx, multPred = TRUE)
+
+      # appends the negative frequencies on to the top if needed to line up with ykx properly.
+      if (decorFreqRangeIdx[1] - maxFreqOffsetIdx <= 0){
+        xLfitted <- eigenCoefWithNegYk(yk2 = xLfitted
+                                       # , freqRangeIdx = c(1, dim(xLfitted)[1])
+                                       , freqRangeIdx = freqRangeIdx
+                                       , maxFreqOffsetIdx = maxFreqOffsetIdx, multPred = TRUE)
+      }
 
       ykx[1:dim(xLfitted)[1], , , nameOrder[l]] <- ykx[1:dim(xLfitted)[1], , , nameOrder[l], drop = FALSE] - xLfitted
     }
@@ -478,7 +482,7 @@ predictTs <- function(newdata, ir, Hinfo, info){
   # }
 
   for (i in 1:nrow(Hinfo)){
-    ## Should this be 2*pi*(1:N) or 2*pi*(0:N) ?
+    ## Should this be 2*pi*(1:N) or 2*pi*(0:(N-1)) ?
     ## is the negative necessary? I guess it doesn't matter since cos(x) is an even function...
     # 0:(N-1) inside cos() due to fft ranging from 0:(N-1) as well.
     if (Hinfo$idxOffset[i] == 0){
