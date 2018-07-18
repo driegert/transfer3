@@ -335,8 +335,14 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
 
   coh.ind <- array(NA_integer_, dim = dim(coh))
 
-  if (maxFreqOffsetIdx == 0){
+  # browser()
+  #### ADDED && forceZeroOffset on July 18, 2018
+  if (maxFreqOffsetIdx == 0 && forceZeroOffset){
     coh.ind[, , ] <- 1
+    # ADDED this entire else if() statement on July 18, 2018 as well.
+  } else if (maxFreqOffsetIdx == 0 && !forceZeroOffset){
+    coh.ind[, , ] <- 0
+    coh.ind[coh > mscLev] <- 1
   } else {
     # think about how to optimize this - specifically, memory usage is likely inefficient
     # "modify in place" would be great?
