@@ -436,6 +436,7 @@ ir <- function(H, n, realPart = TRUE){
 
 
 #' Spectrum prediction
+#'
 #' Predicts the spectrum based on an estimated transfer function and new data provided.
 #'
 #' @param H A \code{list} returned by tf() containing H, Hinfo, and info.
@@ -465,6 +466,54 @@ specPredict <- function(H, d2){
   }
 
   sRecon
+}
+
+
+#' Eigencoefficient Prediction
+#'
+#' Predicts the eigencoefficients based on an estimated transfer function and new data provided.
+#'
+#' @param H A \code{list} returned by tf() containing H, Hinfo, and info.
+#' @param newdata A \code{data.frame} containing the new data.  Must have the same column names as the original
+#' data used in the transfer function estimation.
+#' @param newyk A \code{list} of matrices.  One matrix per predictor with the kth column giving the kth
+#' eigencoefficient for that predictor. (NOT YET IMPLEMENTED)
+#'
+#' @export
+predictEigenCoef <- function(H, newdata=NULL, yk = NULL){
+  if (is.null(yk)){
+    predNames <- names(newdata)
+    yk <- list()
+
+    for (i in 1:length(predNames)){
+      tmp <- multitaper::spec.mtm(newdata[, i], nw = H$info$nw, k = H$info$k
+                                  , deltat = H$info$dtx
+                                  , nFFT = H$info$nFFTx
+                                  , center = 'none'
+                                  , returnInternals = TRUE, plot = FALSE)
+      yk[[ predNames[i] ]] <- tmp$mtm$eigenCoefs * tmp$mtm$eigenCoefWt
+    }
+  } else {
+    predNames <- names(yk)
+  }
+
+  fullFreqRange <- H$info$freqRangeIdx[1]:H$info$freqRangeIdx[2]
+  yk.hat <- matrix((0 + 0i), nrow = nrow(yk[[1]]), ncol = H$info$k)
+  for (i in 1:nrow(H$Hinfo)){
+    offIdx <- fullFreqRange + H$info$idxOffset[i]
+    negOffIdx <- which(offIdx <= 0)
+    posOffIdx <- which(offIdx > 0)
+    offIdx[offIdx <= 0] <- abs(offIdx[offIdx <= 0]) + 2
+
+    if (length(negOffIdx > 0)){
+      yk.hat <- yk.hat + H$H[, i] * rbind(Conj(yk[[ H$Hinfo$predictor[i] ]][ offIdx[negOffIdx ], ])
+                                          , yk[[ H$Hinfo$predictor[i] ]][ offIdx[posOffIdx],  ])
+    } else {
+      yk.hat <- yk.hat + H$H[, i] * yk[[ H$Hinfo$predictor[i] ]][offIdx, ]
+    }
+  }
+
+  yk.hat
 }
 
 #' Predict the Time Series from the predictors and impulse response
