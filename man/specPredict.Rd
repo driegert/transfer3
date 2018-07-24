@@ -2,8 +2,7 @@
 % Please edit documentation in R/transfer.R
 \name{specPredict}
 \alias{specPredict}
-\title{Spectrum prediction
-Predicts the spectrum based on an estimated transfer function and new data provided.}
+\title{Spectrum prediction}
 \usage{
 specPredict(H, d2)
 }
@@ -14,6 +13,5 @@ specPredict(H, d2)
 data used in the transfer function estimation.}
 }
 \description{
-Spectrum prediction
 Predicts the spectrum based on an estimated transfer function and new data provided.
 }

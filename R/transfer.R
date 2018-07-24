@@ -477,10 +477,11 @@ specPredict <- function(H, d2){
 #' @param newdata A \code{data.frame} containing the new data.  Must have the same column names as the original
 #' data used in the transfer function estimation.
 #' @param newyk A \code{list} of matrices.  One matrix per predictor with the kth column giving the kth
-#' eigencoefficient for that predictor. (NOT YET IMPLEMENTED)
+#' eigencoefficient for that predictor.
 #'
 #' @export
 predictEigenCoef <- function(H, newdata=NULL, yk = NULL){
+
   if (is.null(yk)){
     predNames <- names(newdata)
     yk <- list()
@@ -498,18 +499,22 @@ predictEigenCoef <- function(H, newdata=NULL, yk = NULL){
   }
 
   fullFreqRange <- H$info$freqRangeIdx[1]:H$info$freqRangeIdx[2]
-  yk.hat <- matrix((0 + 0i), nrow = nrow(yk[[1]]), ncol = H$info$k)
+  yk.hat <- matrix((0 + 0i), nrow = length(fullFreqRange), ncol = H$info$k)
   for (i in 1:nrow(H$Hinfo)){
-    offIdx <- fullFreqRange + H$info$idxOffset[i]
+    offIdx <- fullFreqRange + H$Hinfo$idxOffset[i]
     negOffIdx <- which(offIdx <= 0)
     posOffIdx <- which(offIdx > 0)
     offIdx[offIdx <= 0] <- abs(offIdx[offIdx <= 0]) + 2
 
     if (length(negOffIdx > 0)){
-      yk.hat <- yk.hat + H$H[, i] * rbind(Conj(yk[[ H$Hinfo$predictor[i] ]][ offIdx[negOffIdx ], ])
-                                          , yk[[ H$Hinfo$predictor[i] ]][ offIdx[posOffIdx],  ])
+      # yk.hat <- yk.hat + H$H[, i] * rbind(Conj(yk[[ H$Hinfo$predictor[i] ]][ offIdx[negOffIdx ], ])
+                                          # , yk[[ H$Hinfo$predictor[i] ]][ offIdx[posOffIdx],  ])
+      yk.hat <- yk.hat + apply(rbind(Conj(yk[[ H$Hinfo$predictor[i] ]][ offIdx[negOffIdx ], ])
+                                     , yk[[ H$Hinfo$predictor[i] ]][ offIdx[posOffIdx],  ])
+                               , MARGIN = 2, FUN = "*", H$H[, i])
     } else {
-      yk.hat <- yk.hat + H$H[, i] * yk[[ H$Hinfo$predictor[i] ]][offIdx, ]
+      # yk.hat <- yk.hat + H$H[, i] * yk[[ H$Hinfo$predictor[i] ]][offIdx, ]
+      yk.hat <- yk.hat + apply(yk[[ H$Hinfo$predictor[i] ]][offIdx, ], MARGIN = 2, FUN = "*", H$H[, i])
     }
   }
 
