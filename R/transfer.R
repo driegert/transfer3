@@ -431,7 +431,7 @@ ir <- function(H, n, realPart = TRUE){
   # put the impulse response in the correct place in the array in order to use in a convolution - i.e., filter()
   ind <- c((nrow(h)-n+2):nrow(h), 1:n)
 
-  list(h = h[ind, , drop = FALSE], n = n-1, realPart = realPart)
+  list(h = h[ind, , drop = FALSE], lag = (1-n):(n-1),n = n-1, realPart = realPart)
 }
 
 
