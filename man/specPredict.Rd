@@ -9,7 +9,8 @@ specPredict(H, d2)
 \arguments{
 \item{H}{A \code{list} returned by tf() containing H, Hinfo, and info.}
 
-\item{d2}{A \code{data.frame} containing the new data.  Must have the same column names as the original
+\item{d2}{A \code{data.frame} containing the new data.  Must have the same column
+ names as the original
 data used in the transfer function estimation.}
 }
 \description{

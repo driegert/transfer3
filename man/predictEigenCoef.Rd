@@ -9,10 +9,12 @@ predictEigenCoef(H, newdata = NULL, yk = NULL)
 \arguments{
 \item{H}{A \code{list} returned by tf() containing H, Hinfo, and info.}
 
-\item{newdata}{A \code{data.frame} containing the new data.  Must have the same column names as the original
+\item{newdata}{A \code{data.frame} containing the new data.  Must have the same column
+ names as the original
 data used in the transfer function estimation.}
 
-\item{newyk}{A \code{list} of matrices.  One matrix per predictor with the kth column giving the kth
+\item{newyk}{A \code{list} of matrices.  One matrix per predictor with the kth column
+giving the kth
 eigencoefficient for that predictor.}
 }
 \description{

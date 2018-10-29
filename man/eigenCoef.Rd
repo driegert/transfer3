@@ -6,7 +6,7 @@
 \usage{
 eigenCoef(x, nw = 4, k = 7, nFFT = "default", centre = "none",
   deltat = 1, dtUnits = "second", adaptiveWeighting = TRUE,
-  dpssIN = NULL)
+  dpssIN = NULL, returnWeights = FALSE)
 }
 \arguments{
 \item{x}{A vector containing a time-series for which to calculat the eigencoefficnets.}

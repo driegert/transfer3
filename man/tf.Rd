@@ -2,13 +2,13 @@
 % Please edit documentation in R/transfer.R
 \name{tf}
 \alias{tf}
-\title{Calculates some transfer functions.}
+\title{Calculates some transfer functions - !!BLOCKING NOT IMPLEMENTED!!}
 \usage{
 tf(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none", dty = 1,
   dtx = 1, blockSizey = NULL, overlap = 0, cohSigLev = 0.99,
   nOffAllowed = 1, forceZeroOffset = TRUE, freqRange = NULL,
   maxFreqOffset = 0, deadBand = NULL, decorrelate = NULL,
-  nDecorOffAllowed = NULL)
+  nDecorOffAllowed = NULL, postWhCutoff = NULL, nFreqBand = 5)
 }
 \arguments{
 \item{y}{A single column \code{data.frame} containing the response time-series.}
@@ -21,10 +21,20 @@ the zero-offset}, to be used in the transfer function estimation.}
 \item{decorrelate}{A vector containing the names of the predictors (columns of x)
 in the order of the iterative regression.}
 
-\item{deadband}{A vector of two values indicating the start and end of the deadband to remove from the coherence
-matrix - this doesn't work if freqRange[1] != 0 - also, you're going to get errors if you run this when
+\item{postWhCutoff}{A \code{numeric} that forces the transfer functions to only be calculated
+at locations in the response with high variance contribution and with offsets that also
+have high variance contribution.}
+
+\item{deadband}{A vector of two values indicating the start and end of the deadband to
+remove from the coherence
+matrix - this doesn't work if freqRange[1] != 0 - also, you're going to get errors if
+you run this when
 maxFreqOffset == 0.}
 }
 \description{
-Calculates some transfer functions.
+Calculates some transfer functions - !!BLOCKING NOT IMPLEMENTED!!
+}
+\details{
+\code{postWhCutoff} doesn't effect any of the decorrelation techniques.  Only applied
+on the final transfer function calculation.  I think this makes the most sense?  ... Maybe not.
 }

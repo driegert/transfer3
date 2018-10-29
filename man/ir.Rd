@@ -7,12 +7,15 @@
 ir(H, n, realPart = TRUE)
 }
 \arguments{
-\item{H}{A \code{matrix} where each column contains a transfer function - tf()$H would be appropriate.}
+\item{H}{A \code{matrix} where each column contains a transfer function - tf()$H would
+be appropriate.}
 
-\item{n}{An \code{integer} indicating the half-length of the impulse response to return, L = 2*n+1.
+\item{n}{An \code{integer} indicating the half-length of the impulse response to return
+, L = 2*n+1.
 Normally this would be the \code{blockSize2} agrument used in tf().}
 
-\item{realPart}{A \code{logical} indicating whether to return only the real part of the impulse response
+\item{realPart}{A \code{logical} indicating whether to return only the real part of
+the impulse response
 (default = TRUE) or return the complex-valued impulse response (FALSE)}
 }
 \description{

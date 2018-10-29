@@ -11,7 +11,8 @@
 
 eigenCoef <- function(x, nw = 4, k = 7, nFFT = "default", centre = "none"
                       , deltat = 1, dtUnits = "second"
-                      , adaptiveWeighting = TRUE, dpssIN = NULL){
+                      , adaptiveWeighting = TRUE, dpssIN = NULL
+                      , returnWeights = FALSE){
 
   if (adaptiveWeighting){
     tmp <- spec.mtm(x, nw = nw, k = k, nFFT = nFFT, centre = centre
@@ -26,7 +27,11 @@ eigenCoef <- function(x, nw = 4, k = 7, nFFT = "default", centre = "none"
                           , plot = FALSE, returnInternals = TRUE)$mtm$eigenCoefs
   }
 
-  yk
+  if (returnWeights){
+    list(yk = yk, dk = sqrt(tmp$eigenCoefWt))
+  } else {
+    list(yk = yk, dk = NULL)
+  }
 }
 
 #' @export
@@ -78,6 +83,12 @@ eigenCoefWithNegYk <- function(yk2, freqRangeIdx, maxFreqOffsetIdx, multPred = F
     rbind(Conj(yk2[rev(2:(maxFreqOffsetIdx - freqRangeIdx[1] + 2)), ])
           , yk2[1:(freqRangeIdx[2] + maxFreqOffsetIdx), ])
   }
+}
+
+# same as eigenCoefWithNegYk, except for a vector, not a matrix.
+vectorWithNegYk <- function(obj, freqRangeIdx, maxFreqOffsetIdx){
+  c(Conj(obj[rev(2:(maxFreqOffsetIdx - freqRangeIdx[1] + 2))])
+    , obj[1:(freqRangeIdx[2] + maxFreqOffsetIdx)])
 }
 
 #' this only works for a very specific situation
@@ -213,7 +224,143 @@ H2zero <- function(H, freqBand){
 
   idx <- which(freq == freqBandIdx[1]):which(freq == freqBandIdx[2])
 
-  H$H[idx, ] <- complex(real = 0, imaginary = 0)
+  H$H[idx, ] <- kcomplex(real = 0, imaginary = 0)
 
   H
+}
+
+#' A Wrapper for transfer3::postwhiten()
+#'
+#' Post-whitens multiple eigencoefficient series
+#'
+#' @param ykx A \code{compelx array} of dimension MxKxP (freqs by tapers by
+#' predictors).
+#' @param dkx A \code{real array} containing the adaptive weights of ykx.
+#' @param yky A \code{complex matrix} containing the response eigencoefficients (MxK).
+#' @param dky A \code{real matrix} containing the adaptive weights of yky.
+#' @param chiSigLev A \code{numeric} between 0 and 1 representing the
+#' confidence level above which to consider something significant.
+#' @param nFreqBand An \code{integer} indicating how many frequency bands
+#' should be used to postwhiten.  Each band is postwhitened individually.
+#'
+#' @details The number of frequency bands can be around 50-ish (based on
+#' conversation with DJT).
+#'
+#' @export
+postWhMulti <- function(ykx, dkx, yky, dky, chiSigLev=0.99, nFreqBand){
+  nfreqx <- dim(ykx)[1]
+  nfreqy <- dim(yky)[1]
+  ntaper <- dim(ykx)[2]
+
+  xBrk <- floor(seq(1, nfreqx, length.out = nFreqBand))
+  yBrk <- floor(seq(1, nfreqy, length.out = nFreqBand))
+
+  browser()
+  nblock <- dim(ykx)[3]
+  npred <- dim(ykx)[4]
+
+  ykx.sigFreq <- array(0, dim = c(nfreqx, nblock, npred))
+  yky.sigFreq <- matrix(0, nrow = nfreqy, ncol = nblock)
+
+  for (b in 1:nblock){
+    for (p in 1:npred){
+      specx <- apply(abs(ykx[,,b,p]*dkx[,,b,p])^2, 1, sum) / apply(dkx[,,b,p]^2, 1, sum)
+      for (i in 1:(length(xBrk)-1)){
+        tmp <- transfer3:::postwhiten(spec = list(freq = xBrk[i]:(xBrk[i+1]-1)
+                                                  , spec = specx[ xBrk[i]:(xBrk[i+1]-1) ])
+                                      , k = ntaper
+                                      , sigLevel = chiSigLev)
+        ykx.sigFreq[ xBrk[i]-1 + which(tmp$spec.postwh$spec >= tmp$sigLevelValue), b, p ] <- 1
+      }
+    }
+
+    for (i in 1:(length(yBrk)-1)){
+      specy <- apply(abs(yky[,,b]*dky[,,b])^2, 1, sum) / apply(dky[,,b]^2, 1, sum)
+      tmp <- transfer3:::postwhiten(spec = list(freq = yBrk[i]:(yBrk[i+1] - 1)
+                                               , spec = specy[ yBrk[i]:(yBrk[i+1] - 1) ])
+                                   , k = ntaper
+                                   , sigLevel = chiSigLev)
+      yky.sigFreq[ yBrk[i]-1 + which(tmpy$spec.postwh$spec >= tmpy$sigLevelValue), b ] <- 1
+    }
+  }
+
+  list(sigx = ykx.sigFreq, sigy = yky.sigFreq)
+}
+
+#' @param yk A \code{matrix} containing eigencoefficients (columns).
+#'
+#' @export
+postWhSingle <- function(yk, dk, chiSigLev=0.99, nFreqBand){
+  nfreq <- dim(yk)[1]
+  ntaper <- dim(yk)[2]
+  brk <- floor(seq(1, nfreq, length.out = nFreqBand))
+
+  spec <- apply(abs(yk*dk)^2, 1, sum) / apply(dk^2, 1, sum)
+
+  sigFreq <- rep(0, nfreq)
+
+  for (i in 1:(length(brk)-1)){
+    tmp <- transfer3:::postwhiten(spec = list(freq = brk[i]:(brk[i+1]-1)
+                                              , spec = spec[ brk[i]:(brk[i+1]-1) ])
+                                  , k = ntaper
+                                  , sigLevel = chiSigLev)
+    sigFreq[ brk[i]-1 + which(tmp$spec.postwh$spec >= tmp$sigLevelValue) ] <- 1
+  }
+
+  sigFreq
+}
+
+
+
+postwhiten <- function(spec, k, sigLevel){
+  # determine and remove the trend from the log-spectrum
+  trend <- lm(log(spec$spec) ~ spec$freq + I(spec$freq^2))
+  spec.detrend <- spec$spec / exp(trend$fitted.values)
+
+  # create a dataframe for the returned freq/spec values
+  spec.work <- data.frame(freq = spec$freq, spec = spec.detrend)
+
+  # sort the spectrum (low to high)
+  spec.dtOrdered <- spec.work$spec[order(spec.work$spec)]
+  # take the value of the spectrum at the 10% point
+  S10 <- spec.dtOrdered[floor(0.1 * length(spec.dtOrdered))]
+
+  nu <- 2 * k - 2
+  # the 10% spectral value times this factor is about the "mean"
+  scale <- S10 * (nu / qchisq(0.1, nu))
+
+  # subtract this "mean" from the log power (divide in linear power)
+  spec.work$spec <- spec.work$spec / scale
+
+  list(spec.postwh=spec.work, sigLevelValue = qchisq(sigLevel, nu)/nu)
+}
+
+
+# prototype code - might need to speed this bad boy up..
+# this is a perfect candidate for Fortran ... just a bloody for-loop.
+
+#' Subset Frequencies Through Postwhitening
+#'
+#' Zeroes out non-significant variance contribution
+#'
+#' @param coh A \code{matrix} containing coherence between one predictor
+#' and the response.
+#' @param maxFreqOffsetIdx An \code{integer} representing exactly what it seems.
+#' @param sigfx A \code{vector} containing postwhiten-based significant frequencies
+#' of the input.
+#' @param sigfy A \code{vector} containing postwhiten-based significant frequencies
+#' of the response.
+#'
+#' @export
+cohByStruct <- function(coh, maxFreqOffsetIdx, sigfx, sigfy){
+  browser()
+  for (j in 1:length(sigfy)){
+    if (sigfy[j] == 0){
+      coh[, j] <- 0
+    } else {
+      coh[, j] <- coh[, j] * sigfx[(j+maxFreqOffsetIdx):(j+maxFreqOffsetIdx+nrow(coh)-1)]
+    }
+  }
+
+  coh
 }
