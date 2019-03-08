@@ -6,9 +6,11 @@
 \usage{
 tf(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none", dty = 1,
   dtx = 1, blockSizey = NULL, overlap = 0, cohSigLev = 0.99,
-  nOffAllowed = 1, forceZeroOffset = TRUE, freqRange = NULL,
-  maxFreqOffset = 0, deadBand = NULL, decorrelate = NULL,
-  nDecorOffAllowed = NULL, postWhCutoff = NULL, nFreqBand = 5)
+  nOffAllowed = 1, forceZeroOffset = TRUE, useSigOffsetOnly = FALSE,
+  sigOffsetLev = 0.99, freqRange = NULL, maxFreqOffset = 0,
+  deadBand = NULL, decorrelate = NULL, nDecorOffAllowed = NULL,
+  postWhCutoff = NULL, nFreqBand = 1, yAllowedFreqPw = NULL,
+  xAllowedFreqPw = NULL)
 }
 \arguments{
 \item{y}{A single column \code{data.frame} containing the response time-series.}
@@ -17,6 +19,10 @@ tf(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none", dty = 1,
 
 \item{nOffAllowed}{An \code{integer} representing the number of offsets, \emph{including
 the zero-offset}, to be used in the transfer function estimation.}
+
+\item{useSigOffsetOnly}{A \code{logical} indicating that, possibly in addition to the
+the zero-offset (forceZeroOffset), only allow offset frequencies that have
+significant counts.}
 
 \item{decorrelate}{A vector containing the names of the predictors (columns of x)
 in the order of the iterative regression.}

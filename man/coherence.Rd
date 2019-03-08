@@ -4,9 +4,10 @@
 \alias{coherence}
 \title{Calculates the coherence between two series.}
 \usage{
-coherence(x, y, method = c("aveOfMsc", "mscOfAve", "mscOfAveCoh"), nw = 4,
-  k = 7, nFFTx = NULL, centre = "none", dtx = 1, dty = 1,
-  blockSizex = NULL, overlap = 0, freqRange = NULL, maxFreqOffset = 0,
+coherence(x, y, method = c("aveOfMsc", "offTaperMsc", "mscOfAve",
+  "mscOfAveCoh"), nw = 4, k = 7, nFFTx = NULL, centre = "none",
+  dtx = 1, dty = 1, adaptiveWeighting = TRUE, blockSizex = NULL,
+  overlap = 0, freqRange = NULL, maxFreqOffset = 0,
   convertMscToNormal = FALSE, namex = "x", namey = "y")
 }
 \arguments{
@@ -14,7 +15,7 @@ coherence(x, y, method = c("aveOfMsc", "mscOfAve", "mscOfAveCoh"), nw = 4,
 
 \item{y}{faster sampled series - the predictor}
 
-\item{method}{only "aveOfMsc" is currently implemented}
+\item{method}{only "aveOfMsc" and "offTaperMsc" are currently implemented}
 
 \item{nw}{blap}
 

@@ -6,7 +6,7 @@
 #'
 #' @param x slower sampled series - the response (stupid)
 #' @param y faster sampled series - the predictor
-#' @param method only "aveOfMsc" is currently implemented
+#' @param method only "aveOfMsc" and "offTaperMsc" are currently implemented
 #' @param nw blap
 #' @param k blap
 #' @param centre The time series is centred using one of three methods:
@@ -17,13 +17,13 @@
 #' @details Only calculates the forward coherence currently.  'x' is the response if
 #' the series do not have the same sampling rate ... which is confusing.
 #' @export
-coherence <- function(x, y, method = c("aveOfMsc", "mscOfAve", "mscOfAveCoh")
+coherence <- function(x, y, method = c("aveOfMsc", "offTaperMsc", "mscOfAve", "mscOfAveCoh")
                       , nw = 4, k = 7, nFFTx = NULL, centre = "none"
-                      , dtx = 1, dty = 1, blockSizex = NULL, overlap = 0
+                      , dtx = 1, dty = 1, adaptiveWeighting = TRUE
+                      , blockSizex = NULL, overlap = 0
                       , freqRange = NULL, maxFreqOffset = 0
                       , convertMscToNormal = FALSE
                       , namex = "x", namey = "y"){
-
   # add some checks for NA's:
   dtRatio <- dtx / dty
   nx <- length(x)
@@ -40,7 +40,7 @@ coherence <- function(x, y, method = c("aveOfMsc", "mscOfAve", "mscOfAveCoh")
             , dtRatio - trunc(dtRatio) == 0) # need the ratio to be an integer for this to work properly
 
   if (is.null(nFFTx)){
-    nFFTx <- 2^ceiling(log2(nx + 1))
+    nFFTx <- 2^ceiling(log2(nx) + 1)
   }
   nFFTy <- dtRatio * nFFTx
 
@@ -75,6 +75,7 @@ coherence <- function(x, y, method = c("aveOfMsc", "mscOfAve", "mscOfAveCoh")
   info <- list(namex = namex, namey = namey
                ,method = method, nw = nw, k = k, nFFTx = nFFTx, nFFTy = nFFTy
                , centre = centre, dtx = dtx, dty = dty, dtRatio = dtRatio
+               , adaptiveWeighting = adaptiveWeighting
                , blockSizex = blockSizex, blockSizey = blockSizey
                , overlap = overlap
                , nBlocks = blockx$nBlock
@@ -90,7 +91,21 @@ coherence <- function(x, y, method = c("aveOfMsc", "mscOfAve", "mscOfAveCoh")
                              , nw = nw, k = k
                              , nFFTx = nFFTx, nFFTy = nFFTy
                              , centre = centre, dtx = dtx, dty = dty
+                             , adaptiveWeighting = adaptiveWeighting
                              , convertMscToNormal = convertMscToNormal)
+         , cFreq = freqx[freqRangeIdx[1]:freqRangeIdx[2]]
+         , oFreq = oFreq
+         , info = info)
+  } else if (method[1] == "offTaperMsc"){
+    warning("Only full block will be used.")
+
+    ykx <- eigenCoef(x, nw = nw, k = k, nFFT = nFFTx
+                     , centre = centre, deltat = dtx
+                     , adaptiveWeighting = adaptiveWeighting)$yk
+    yky <- eigenCoef(y, nw = nw, k = k, nFFT = nFFTy
+                     , centre = centre, deltat = dty
+                     , adaptiveWeighting = adaptiveWeighting)$yk
+    list(coh = offTaperHelper(ykx, yky, freqRangeIdx, maxFreqOffsetIdx)
          , cFreq = freqx[freqRangeIdx[1]:freqRangeIdx[2]]
          , oFreq = oFreq
          , info = info)
@@ -98,18 +113,58 @@ coherence <- function(x, y, method = c("aveOfMsc", "mscOfAve", "mscOfAveCoh")
 }
 
 #' @export
+offTaperHelper <- function(yk1, yk2, freqRangeIdx, maxFreqOffsetIdx){
+  if (freqRangeIdx[2] + maxFreqOffsetIdx > nrow(yk2)){
+    stop("Not enough indices to accommodate the highest offset from the largest centre frequency.")
+  }
+
+  nfreq1 <- freqRangeIdx[2] - freqRangeIdx[1] + 1
+  nOffsets <- 2*maxFreqOffsetIdx + 1
+
+  if (freqRangeIdx[1] - maxFreqOffsetIdx <= 0){
+    yk2.f <- eigenCoefWithNegYk(yk2 = yk2, freqRangeIdx = freqRangeIdx
+                                , maxFreqOffsetIdx = maxFreqOffsetIdx)
+    out <- .Fortran("offTaperMsc"
+                    , coh = double(nfreq1 * nOffsets)
+                    , yk1 = as.complex(yk1[ freqRangeIdx[1]:freqRangeIdx[2], ])
+                    , yk2 = as.complex(yk2.f)
+                    , nfreq1 = as.integer(nfreq1)
+                    , nfreq2 = as.integer(nrow(yk2.f))
+                    , k = as.integer(ncol(yk1))
+                    , nOffsets = as.integer(nOffsets))
+  } else {
+    numRows <- length((freqRangeIdx[1]-maxFreqOffsetIdx):(freqRangeIdx[2]+maxFreqOffsetIdx))
+    out <- .Fortran("offTaperMsc"
+                    , coh = double(nfreq1 * nOffsets)
+                    , yk1 = as.complex(yk1[ freqRangeIdx[1]:freqRangeIdx[2], ])
+                    , yk2 = as.complex(yk2[ (freqRangeIdx[1]-maxFreqOffsetIdx):(freqRangeIdx[2]+maxFreqOffsetIdx), ])
+                    , nfreq1 = as.integer(nfreq1)
+                    , nfreq2 = as.integer(numRows)
+                    , k = as.integer(ncol(yk1))
+                    , nOffsets = as.integer(nOffsets))
+  }
+
+  matrix(out$coh, nrow = nOffsets, ncol = nfreq1)
+}
+
+#' @export
 aveOfMscBlock <- function(x, y, blockx, blocky
                           , freqRangeIdx, nFreqRangeIdx
                           , maxFreqOffsetIdx, nOffsets
                           , nw, k, nFFTx, nFFTy, centre, dtx, dty
-                          , convertMscToNormal){
+                          , adaptiveWeighting, convertMscToNormal){
+
   msc <- matrix(0, nrow = nOffsets, ncol = nFreqRangeIdx)
 
   for (i in 1:blockx$nBlock){
-    ykx <- eigenCoef(x[ blockx$startIdx[i]:(blockx$startIdx[i] + blockx$blockSize-1) ], nw = nw, k = k, nFFT = nFFTx
-                     , centre = centre, deltat = dtx)
-    yky <- eigenCoef(y[ blocky$startIdx[i]:(blocky$startIdx[i] + blocky$blockSize-1) ], nw = nw, k = k, nFFT = nFFTy
-                     , centre = centre, deltat = dty)
+    ykx <- eigenCoef(x[ blockx$startIdx[i]:(blockx$startIdx[i] + blockx$blockSize-1) ]
+                     , nw = nw, k = k, nFFT = nFFTx
+                     , centre = centre, deltat = dtx
+                     , adaptiveWeighting = adaptiveWeighting)$yk
+    yky <- eigenCoef(y[ blocky$startIdx[i]:(blocky$startIdx[i] + blocky$blockSize-1) ]
+                     , nw = nw, k = k, nFFT = nFFTy
+                     , centre = centre, deltat = dty
+                     , adaptiveWeighting = adaptiveWeighting)$yk
 
     if (convertMscToNormal){
       msc <- msc + msc2norm(aveOfMsc(yk1 = ykx, yk2 = yky
@@ -126,7 +181,11 @@ aveOfMscBlock <- function(x, y, blockx, blocky
   msc / blockx$nBlock
 }
 
-# the assumption here is that the df's are the same in yk1 and yk2, which means nFFT1 = a*nFFT2 (a = dt1/dt2 an integer)
+# the assumption here is that the df's are the same in yk1 and yk2,
+# which means nFFT1 = a*nFFT2 (a = dt1/dt2 an integer)
+
+## yk1 is the response
+## yk2 is the "predictor" (faster sampling rate)
 aveOfMsc <- function(yk1, yk2, freqRangeIdx, maxFreqOffsetIdx){
   if (freqRangeIdx[2] + maxFreqOffsetIdx > nrow(yk2)){
     stop("Not enough indices to accommodate the highest offset from the largest centre frequency.")
@@ -138,7 +197,6 @@ aveOfMsc <- function(yk1, yk2, freqRangeIdx, maxFreqOffsetIdx){
   if (freqRangeIdx[1] - maxFreqOffsetIdx <= 0){
     yk2.f <- eigenCoefWithNegYk(yk2 = yk2, freqRangeIdx = freqRangeIdx
                                 , maxFreqOffsetIdx = maxFreqOffsetIdx)
-
     out <- .Fortran("cohMsc"
                     , coh = double(nfreq1 * nOffsets)
                     , yk1 = as.complex(yk1[ freqRangeIdx[1]:freqRangeIdx[2], ])

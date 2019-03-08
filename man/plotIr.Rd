@@ -4,7 +4,7 @@
 \alias{plotIr}
 \title{Plots the impulse responses to a PDF}
 \usage{
-plotIr(ir, filename, hTrim = NULL, sides = 2)
+plotIr(ir, filename, sides = 2)
 }
 \arguments{
 \item{ir}{A \code{matrix} with each column containing the impusles response}
@@ -12,10 +12,10 @@ plotIr(ir, filename, hTrim = NULL, sides = 2)
 \item{filename}{A \code{character} string indicating where to store the pdf.  Should have a
 .pdf extension.}
 
+\item{sides}{An \code{integer} indicating whether this is a one- or two-sided filter.}
+
 \item{hTrim}{An \code{integer} indicating the length of each side of the filter if sides = 2
 (i.e., L = 2*hTrim + 1), or the number of filter coefficients if sides = 1.}
-
-\item{sides}{An \code{integer} indicating whether this is a one- or two-sided filter.}
 }
 \description{
 Mostly used when using many offsets.

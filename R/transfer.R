@@ -4,6 +4,9 @@
 #'
 #' @param y A single column \code{data.frame} containing the response time-series.
 #' @param x A \code{data.frame} containing the predictor time-series.
+#' @param useSigOffsetOnly A \code{logical} indicating that, possibly in addition to the
+#' the zero-offset (forceZeroOffset), only allow offset frequencies that have
+#' significant counts.
 #' @param decorrelate A vector containing the names of the predictors (columns of x)
 #' in the order of the iterative regression.
 #' @param nOffAllowed An \code{integer} representing the number of offsets, \emph{including
@@ -24,9 +27,12 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
                , dty = 1, dtx = 1, blockSizey = NULL, overlap = 0
                , cohSigLev = 0.99, nOffAllowed = 1
                , forceZeroOffset = TRUE
+               , useSigOffsetOnly = FALSE, sigOffsetLev = 0.99
                , freqRange = NULL, maxFreqOffset = 0, deadBand = NULL
                , decorrelate = NULL, nDecorOffAllowed = NULL
-               , postWhCutoff = NULL, nFreqBand = 5){
+               , postWhCutoff = NULL, nFreqBand = 1
+               , yAllowedFreqPw = NULL, xAllowedFreqPw = NULL){
+
   ## check ALL the parameters here...
   # 1) make sure decorrelate contains column names of x
   # 2) dty > dtx
@@ -71,15 +77,30 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
   freqy <- posFreq(nFFTy, dty)
   freqx <- posFreq(nFFTx, dtx)
 
+  nfreqy <- length(freqy)
+  nfreqx <- length(freqx)
+
+  # used in postwhitening in case you've done some filtering on the ends...
+  if (!is.null(yAllowedFreqPw)){
+    yAllowedIdxPw <- c(max(floor(yAllowedFreqPw[1] / freqy[2]), 1)
+                       , min(ceiling(yAllowedFreqPw[2] / freqy[2]), nfreqy))
+  } else {
+    yAllowedIdxPw <- c(1, nfreqy)
+  }
+
+  if (!is.null(xAllowedFreqPw)){
+    xAllowedIdxPw <- c(max(floor(xAllowedFreqPw[1] / freqx[2]), 1)
+                       , min(ceiling(xAllowedFreqPw[2] / freqx[2]), nfreqx))
+  } else {
+    xAllowedIdxPw <- c(1, nfreqx)
+  }
+
   # frequency spacing
   df <- 1/(nFFTy * dty)
 
   # find the number of indices in the band [0, W]
   w <- nw / (dty * blockSizey)
   nwIdx <- floor(w / df)
-
-  nfreqy <- length(freqy)
-  nfreqx <- length(freqx)
 
   if (is.null(freqRange)){
     freqRange <- c(0, 1/(2*dty))
@@ -131,11 +152,15 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
   ## Array dim: freq x taper x block x predictor (predictor with ykx only)
   yky <- array(NA_complex_, dim = c(nFreqRangeIdx, k, blocky$nBlock))
   dky <- array(NA_real_, dim = c(nFreqRangeIdx, k, blocky$nBlock))
-  sigfy <- array(NA_real_, dim = c(nFreqRangeIdx, blocky$nBlock))
 
   ykx <- array(NA_complex_, dim = c(nDecorFreqRangeIdx + nOffsets - 1, k, blockx$nBlock, dim(x)[2]))
   dkx <- array(NA_real_, dim = c(nDecorFreqRangeIdx + nOffsets - 1, k, blockx$nBlock, dim(x)[2]))
-  sigfx <- array(NA_real_, dim = c(nDecorFreqRangeIdx + nOffsets - 1, blockx$nBlock, dim(x)[2]))
+
+  if (!is.null(postWhCutoff)){
+    nrowsInArray <- length(c(rev(2:(maxFreqOffsetIdx - freqRangeIdx[1] + 2)), 1:(freqRangeIdx[2] + maxFreqOffsetIdx)))
+    sigfy <- array(NA_real_, dim = c(nFreqRangeIdx, blocky$nBlock))
+    sigfx <- array(NA_real_, dim = c(nDecorFreqRangeIdx + nOffsets - 1, blockx$nBlock, dim(x)[2]))
+  }
 
   ### put this loop into another function? Check copying in functions... when will
   # R make copies?
@@ -155,11 +180,12 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
         dkx[, , i, j] <- eigenCoefWithNegYk(tmp$dk, decorFreqRangeIdx, maxFreqOffsetIdx)
 
         # postwhitening used to determine significant frequencies:
+        ### THIS needs to move. Works when f = 0 is the start frequency, but otherwise...
         if (!is.null(postWhCutoff)){
           sigTmp <- transfer3:::postWhSingle(yk = tmp$yk, dk = tmp$dk
-                                 , chiSigLev=0.95, nFreqBand = nFreqBand)
-          sigfx[, i, j] <- transfer3:::vectorWithNegYk(sigTmp, freqRangeIdx, maxFreqOffsetIdx)
-          ### DIMENSIONS ARE NOT CORRECT, FIX THIS!
+                                 , chiSigLev=postWhCutoff, nFreqBand = nFreqBand
+                                 , allowedIdx = xAllowedIdxPw)
+          sigfx[, i, j] <- transfer3:::vectorWithNegYk(sigTmp, decorFreqRangeIdx, maxFreqOffsetIdx)
         }
       } else {
         ykx[, , i, j] <- tmp$yk[(decorFreqRangeIdx[1]-maxFreqOffsetIdx):
@@ -168,7 +194,7 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
                                   (decorFreqRangeIdx[2]+maxFreqOffsetIdx), ]
 
         if (!is.null(postWhCutoff)){ # obtain "structure" indicators
-          sigfx[, i, j] <- transfer3:::postWhSingle(yk = tmp$yk, dk = tmp$dk, chiSigLev=0.95
+          sigfx[, i, j] <- transfer3:::postWhSingle(yk = tmp$yk, dk = tmp$dk, chiSigLev=postWhCutoff
                                         , nFreqBand = nFreqBand)[(decorFreqRangeIdx[1]-maxFreqOffsetIdx):
                                                                    (decorFreqRangeIdx[2]+maxFreqOffsetIdx)]
         }
@@ -180,9 +206,12 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
                       , returnWeights = TRUE)
     yky[, , i] <- tmpy$yk[freqRangeIdx[1]:freqRangeIdx[2], ]
     dky[, , i] <- tmpy$dk[freqRangeIdx[1]:freqRangeIdx[2], ]
-    sigfy[, i] <- transfer3:::postWhSingle(yk = tmpy$yk, dk = tmpy$dk, chiSigLev=0.95
-                               , nFreqBand = nFreqBand)[ freqRangeIdx[1]:freqRangeIdx[2] ]
-  } ### Postwhitening needs to happen up here BEFORE eigenCoefWithNegYk() happens^^
+    if (!is.null(postWhCutoff)){
+      sigfy[, i] <- transfer3:::postWhSingle(yk = tmpy$yk, dk = tmpy$dk, chiSigLev=postWhCutoff
+                                             , nFreqBand = nFreqBand
+                                             , allowedIdx = yAllowedIdxPw)[ freqRangeIdx[1]:freqRangeIdx[2] ]
+    }
+  } ### !!!!! yes! Postwhitening needs to happen up here BEFORE eigenCoefWithNegYk() happens^^
 
   ## Decorrelate the inputs before calculating the transfer functions
   # store eigencoefficients and return? No - return decorrelated time-series.
@@ -351,7 +380,11 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
   coh[is.infinite(coh) & coh < 0] <- min(coh[!is.infinite(coh)])
   coh[is.infinite(coh) & coh > 0] <- max(coh[!is.infinite(coh)])
 
-  # browser()
+  #####################
+  # ERASE THIS
+  # cohcoh <- coh
+  #####################
+
   # manipulate the coherence matrix to enforce:
   # 1) zeroFreqOffset
   # 2) deadZone (from filtering)
@@ -383,6 +416,27 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
 
   mscLev <- qnorm(cohSigLev, mean = 0, sd = 1 / sqrt(blocky$nBlock))
 
+  #### October 29, 2018:
+  ## Need a test for number of significant frequencies by offset.
+  # Poisson distribution mayhap? (gamma fits much better)
+
+  #UNCOMMENT THIS::
+  ### Commented out on November 8, 2018 in order to work on Health Canada
+  ## data that doesn't require this part.
+  # browser()
+  # if (useSigOffsetOnly){
+  #   offsetIdxAllowed <- list()
+  #   for (j in 1:dim(coh)[3]){
+  #     coh.off <- apply(coh[, , j], 1, function(x){ length(which(x > mscLev)) })
+  #     fit.gam <- fitdistrplus::fitdist(coh.off, "gamma", method = "mme")
+  #     offsetIdxAllowed[[j]] <- which(coh.off > qgamma(p = sigOffsetLev
+  #                                                     , shape = fit.gam$estimate["shape"]
+  #                                                     , rate = fit.gam$estimate["rate"]))
+  #     coh[,-offsetIdxAllowed[[j]], j] <- -999 ### Need to maybe think about this in terms of the
+  #     # forced zerofrequency
+  #   }
+  # }
+
   coh.ind <- array(NA_integer_, dim = dim(coh))
 
   #### ADDED "&& forceZeroOffset" on July 18, 2018
@@ -401,11 +455,21 @@ tf <- function(y, x, nw = 4, k = 7, nFFTy = NULL, centre = "none"
 
   # obliterate (set to 0) any coherence entries that don't correspond to structure
   # in both the response and predictor
-  for (j in 1:ncol(x)){
-    coh[, , j] <- cohByStruct(coh[, , j], maxFreqOffsetIdx, sigfx[, 1, j], sigfy[, 1])
-  }
+  # browser()
 
-  browser()
+  ## there is a "drop = TRUE" problem with the first argument
+  # of cohByStruct() when no offsets are used
+  if (!is.null(postWhCutoff)){
+    for (j in 1:ncol(x)){
+      coh[, , j] <- cohByStruct(coh[, , j], maxFreqOffsetIdx, sigfx[, 1, j], sigfy[, 1])
+    }
+  }
+  # browser()
+
+  ##################3
+  # ERASE THIS
+  # plotCohYay(cohcoh, coh, sigfx, sigfy, year)
+  ##################################
 
   if (maxFreqOffsetIdx != 0) {
     # think about how to optimize this - specifically, memory usage is likely inefficient
@@ -514,6 +578,10 @@ ir <- function(H, n, realPart = TRUE){
 #'
 #' @export
 specPredict <- function(H, d2){
+  if (is.null(H$Hinfo)){
+    warning("No transfer function estimated.")
+    return(NA)
+  }
   predNames <- names(d2)
   spec <- list()
   for (i in 1:length(predNames)){
@@ -563,7 +631,7 @@ predictEigenCoef <- function(H, newdata=NULL, yk = NULL){
                                   , nFFT = H$info$nFFTx
                                   , center = 'none'
                                   , returnInternals = TRUE, plot = FALSE)
-      yk[[ predNames[i] ]] <- tmp$mtm$eigenCoefs * tmp$mtm$eigenCoefWt
+      yk[[ predNames[i] ]] <- tmp$mtm$eigenCoefs * sqrt(tmp$mtm$eigenCoefWt)
     }
   } else {
     predNames <- names(yk)
@@ -646,10 +714,15 @@ HcolInfo <- function(maxFreqOffsetIdx, df, npred, HcolIdx, predNames){
   # - probably actualy index and also in terms of frequency
   offIdxFromCent <- (-maxFreqOffsetIdx):maxFreqOffsetIdx
   offFreqFromCent <- offIdxFromCent * df
+  Hinfo <- NULL
+  warning("No transfer function estimated.")
 
   # create a data.frame of info for the transfer function matrix.
   # can probably do this in one line...
   for (i in 1:npred){
+    if (length(HcolIdx) == 0){
+      next
+    }
     if (i == 1){
       curVal <- 1:length(HcolIdx[ HcolIdx[, "col"] == i, "row" ])
       Hinfo <- data.frame(predictor = as.character(predNames[i])

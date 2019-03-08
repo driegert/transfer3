@@ -15,13 +15,13 @@ eigenCoef <- function(x, nw = 4, k = 7, nFFT = "default", centre = "none"
                       , returnWeights = FALSE){
 
   if (adaptiveWeighting){
-    tmp <- spec.mtm(x, nw = nw, k = k, nFFT = nFFT, centre = centre
+    tmp <- multitaper::spec.mtm(x, nw = nw, k = k, nFFT = nFFT, centre = centre
                     , dpssIN = dpssIN, deltat = deltat, dtUnits = dtUnits
                     , adaptiveWeighting = adaptiveWeighting
                     , plot = FALSE, returnInternals = TRUE)$mtm[ c("eigenCoefs", "eigenCoefWt") ]
     yk <- tmp$eigenCoefs * sqrt(tmp$eigenCoefWt)
   } else {
-    yk <- spec.mtm(x, nw = nw, k = k, nFFT = nFFT, centre = centre
+    yk <- multitaper::spec.mtm(x, nw = nw, k = k, nFFT = nFFT, centre = centre
                           , dpssIN = dpssIN, deltat = deltat, dtUnits = dtUnits
                           , adaptiveWeighting = adaptiveWeighting, Ftest = TRUE
                           , plot = FALSE, returnInternals = TRUE)$mtm$eigenCoefs
@@ -34,7 +34,16 @@ eigenCoef <- function(x, nw = 4, k = 7, nFFT = "default", centre = "none"
   }
 }
 
-#' @export
+#' Returns fitted values for eigencoefficients
+#'
+#' DO NOT USE THIS FUNCTION, use predictEigencoef()
+#'
+#' @param H A \code{matrix} with the transfer function.
+#' @param Hinfo All info reltaed to H, a list probably ...
+#' @param ykx An \code{array} containing the predictor eigencoefficents
+#' @param prednames I don't think this even gets used...
+#' @param centFreqIdx mmmmm...
+#'
 eigenCoefFit <- function(H, Hinfo, ykx, prednames, centFreqIdx){
   # browser()
   fitted <- array(0, dim = c(length(centFreqIdx), dim(ykx)[2], dim(ykx)[3], 1))
@@ -104,8 +113,8 @@ fixDeadBand <- function(msc, zeroOffsetIdx, freqRangeIdx, band, df, replaceWith 
   top <- zeroOffsetIdx + nIdx
   bottom <- zeroOffsetIdx - nIdx
 
-  # everything is backwards - we need the reverse diagonals.  Also, in fields::image.plot(), the
-  # y-axis is "reversed" relative to matrix indices as it were...
+  # everything is backwards - we need the reverse diagonals.  Also, in fields::image.plot()
+  # the y-axis is "reversed" relative to matrix indices as it were...
   # so thinking about this based on those plots is difficult..
   matTop <- lower.tri(matrix(0, top, top), diag = TRUE)
   matBot <- upper.tri(matrix(0, nrow = bottom, ncol = top), diag = FALSE)
@@ -135,19 +144,19 @@ convolveFilter <- function(filter, series, sides = 2){
 #' @details TODO: Maybe add the actual offset label to the plots.
 #'
 #' @export
+plotIr <- function(ir, filename, sides = 2){
+  #removed hTrim = NULL from argument list, lags listed in ir object now
+  # if (is.null(hTrim)){
+  #   hTrim <- floor(dim(ir)[1] / 2)
+  # }
 
-plotIr <- function(ir, filename, hTrim = NULL, sides = 2){
-  if (is.null(hTrim)){
-    hTrim <- floor(dim(ir)[1] / 2)
-  }
-
-  xlabel <- seq(-hTrim, hTrim)
+  # xlabel <- seq(-hTrim, hTrim)
 
   pdf(filename, height = 6, width = 8)
   par(mar = c(4,4,1,1), mgp = c(2.5, 1, 0))
 
-  for (i in 1:ncol(ir)){
-    plot(xlabel, ir[, i], type = 'l', xlab = "Lag", ylab = "Impulse Response")
+  for (i in 1:ncol(ir$h)){
+    plot(ir$lag, ir$h[, i], type = 'l', xlab = "Lag", ylab = "Impulse Response")
   }
 
   dev.off()
@@ -224,7 +233,7 @@ H2zero <- function(H, freqBand){
 
   idx <- which(freq == freqBandIdx[1]):which(freq == freqBandIdx[2])
 
-  H$H[idx, ] <- kcomplex(real = 0, imaginary = 0)
+  H$H[idx, ] <- complex(real = 0, imaginary = 0)
 
   H
 }
@@ -288,14 +297,22 @@ postWhMulti <- function(ykx, dkx, yky, dky, chiSigLev=0.99, nFreqBand){
 }
 
 #' @param yk A \code{matrix} containing eigencoefficients (columns).
-#'
+#' @param allowedIdx A \code{2-vector} containing the start and end index for post-whitening.
 #' @export
-postWhSingle <- function(yk, dk, chiSigLev=0.99, nFreqBand){
+postWhSingle <- function(yk, dk, chiSigLev=0.99, nFreqBand, allowedIdx = NULL){
   nfreq <- dim(yk)[1]
   ntaper <- dim(yk)[2]
-  brk <- floor(seq(1, nfreq, length.out = nFreqBand))
 
-  spec <- apply(abs(yk*dk)^2, 1, sum) / apply(dk^2, 1, sum)
+  # had yk*dk at one point - should only be yk on the top, already weighted.
+  ## November 10, 2018
+  spec <- apply(abs(yk)^2, 1, sum) / apply(dk^2, 1, sum)
+  if (!is.null(allowedIdx)){
+    # spec <- spec[allowedIdx]
+    brk <- floor(seq(allowedIdx[1], allowedIdx[2], length.out = nFreqBand+1))
+  } else {
+    # allowedIdx <- 1:length(spec)
+    brk <- floor(seq(1, nfreq, length.out = nFreqBand+1))
+  }
 
   sigFreq <- rep(0, nfreq)
 
@@ -325,7 +342,7 @@ postwhiten <- function(spec, k, sigLevel){
   # take the value of the spectrum at the 10% point
   S10 <- spec.dtOrdered[floor(0.1 * length(spec.dtOrdered))]
 
-  nu <- 2 * k - 2
+  nu <- 2 * k
   # the 10% spectral value times this factor is about the "mean"
   scale <- S10 * (nu / qchisq(0.1, nu))
 
@@ -353,12 +370,11 @@ postwhiten <- function(spec, k, sigLevel){
 #'
 #' @export
 cohByStruct <- function(coh, maxFreqOffsetIdx, sigfx, sigfy){
-  browser()
   for (j in 1:length(sigfy)){
     if (sigfy[j] == 0){
       coh[, j] <- 0
     } else {
-      coh[, j] <- coh[, j] * sigfx[(j+maxFreqOffsetIdx):(j+maxFreqOffsetIdx+nrow(coh)-1)]
+      coh[, j] <- coh[, j] * sigfx[j:(j+nrow(coh)-1)]
     }
   }
 
